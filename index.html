@@ -1,0 +1,1519 @@
+<!DOCTYPE html>
+<html lang="en-IE">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Coco's Code Quest — Learn HTML with Coco the Code Collie</title>
+
+<!-- =========================================================================
+  CODE QUEST  🐶  A gamified HTML-learning game for Daniel, Eabha & Joni
+  ----------------------------------------------------------------------------
+  • Single self-contained file. AirDrop/email it to the iPad and tap to open.
+  • The fancy editor (CodeMirror) loads from the web. If there's no wifi, it
+    automatically falls back to a plain editor — the game NEVER shows a broken
+    screen. XP, badges, saving, confetti and sounds all work fully offline.
+  • Progress for each kid is saved on the device (localStorage). No login,
+    no accounts, nothing leaves the iPad.
+  ----------------------------------------------------------------------------
+  HOW TO EXTEND (for the grown-up):
+  • Add a level: push a new object into the LEVELS array (see comments there).
+  • Add a badge: add to the BADGES list and award it in awardBadgesFor().
+  • Tweak colours/fonts: see the :root CSS variables near the top.
+========================================================================= -->
+
+<!-- Fun chunky kid-friendly fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Baloo+2:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- CodeMirror (the nice colourful code editor). Loaded from the web. -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closetag.min.js"></script>
+
+<style>
+/* ============================ THEME VARIABLES ============================ */
+:root{
+  --bg1:#6d5dfc; --bg2:#21d4fd;          /* page background gradient */
+  --card:#ffffff;
+  --ink:#2a2350;                          /* main text colour */
+  --muted:#7b7796;
+  --brand:#6d5dfc;                        /* primary purple */
+  --brand-d:#4b3bd6;
+  --accent:#ff5fa2;                       /* pink */
+  --gold:#ffc83d;                         /* xp / coins */
+  --green:#21c97a;                        /* success */
+  --green-d:#15a862;
+  --orange:#ff8a3d;
+  --sky:#21d4fd;
+  --shadow:0 10px 30px rgba(40,30,90,.18);
+  --radius:22px;
+}
+/* Unlockable themes (chosen on the rewards screen) re-skin the background */
+body.theme-ocean   { --bg1:#1fa2ff; --bg2:#12d8fa; --brand:#1273e6; --accent:#ff6584; }
+body.theme-sunset  { --bg1:#ff7e5f; --bg2:#feb47b; --brand:#ef5b7b; --accent:#7b2ff7; }
+body.theme-pitch   { --bg1:#11998e; --bg2:#38ef7d; --brand:#0b7d52; --accent:#ffb627; }
+body.theme-night   { --bg1:#3a1c71; --bg2:#5f2c82; --brand:#b06bff; --accent:#ff5fa2; }
+
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;height:100%;}
+/* Font stacks fall back to the iPad's lovely rounded system font (SF Pro
+   Rounded / ui-rounded) when the web fonts can't load — so it still looks
+   playful with no wifi, just slightly different. */
+body{
+  font-family:'Fredoka', ui-rounded, 'SF Pro Rounded', 'Arial Rounded MT Bold', system-ui, -apple-system, sans-serif;
+  color:var(--ink);
+  background:linear-gradient(135deg,var(--bg1),var(--bg2));
+  background-attachment:fixed;
+  min-height:100%;
+  overflow-x:hidden;
+  transition:background .6s ease;
+}
+h1,h2,h3,.chunky{font-family:'Baloo 2', ui-rounded, 'SF Pro Rounded', 'Arial Rounded MT Bold', system-ui, sans-serif;}
+button{font-family:'Baloo 2', ui-rounded, 'SF Pro Rounded', 'Arial Rounded MT Bold', system-ui, sans-serif; cursor:pointer; border:none; outline:none;}
+
+/* Floating decorative blobs in the background */
+.blob{position:fixed; border-radius:50%; filter:blur(8px); opacity:.35; pointer-events:none; z-index:0;}
+
+/* extra bottom space so the corner Coco never covers a tappable button */
+.wrap{position:relative; z-index:1; max-width:1100px; margin:0 auto; padding:16px 16px 150px;}
+
+/* Buttons */
+.btn{
+  background:var(--brand); color:#fff; font-size:20px; font-weight:700;
+  padding:14px 24px; border-radius:18px; box-shadow:0 6px 0 var(--brand-d);
+  transition:transform .08s, box-shadow .08s; display:inline-flex; align-items:center; gap:10px;
+}
+.btn:active{transform:translateY(4px); box-shadow:0 2px 0 var(--brand-d);}
+.btn.big{font-size:24px; padding:18px 34px;}
+.btn.green{background:var(--green); box-shadow:0 6px 0 var(--green-d);}
+.btn.green:active{box-shadow:0 2px 0 var(--green-d);}
+.btn.ghost{background:rgba(255,255,255,.85); color:var(--brand-d); box-shadow:0 6px 0 rgba(0,0,0,.12);}
+.btn.pink{background:var(--accent); box-shadow:0 6px 0 #cc3f7f;}
+.btn.small{font-size:16px; padding:9px 16px; border-radius:14px;}
+.btn[disabled]{opacity:.45; pointer-events:none;}
+
+.card{background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow);}
+
+/* Screens */
+.screen{display:none; animation:pop .35s ease;}
+.screen.active{display:block;}
+@keyframes pop{from{opacity:0; transform:scale(.97) translateY(8px);} to{opacity:1; transform:none;}}
+
+/* =============================== MASCOT =============================== */
+.cody{width:120px; height:120px; flex:0 0 auto; transition:transform .2s;}
+.cody.bounce{animation:bounce .6s ease;}
+.cody.spin{animation:spin .7s ease;}
+.cody.wag .tail{animation:wag .4s ease-in-out infinite;}
+@keyframes bounce{0%,100%{transform:translateY(0);}30%{transform:translateY(-18px);}60%{transform:translateY(-6px);}}
+@keyframes spin{0%{transform:rotate(0) scale(1);}50%{transform:rotate(360deg) scale(1.15);}100%{transform:rotate(360deg) scale(1);}}
+@keyframes wag{0%,100%{transform:rotate(-12deg);}50%{transform:rotate(12deg);}}
+
+/* Speech bubble for Cody */
+.bubble{
+  position:relative; background:#fff; border-radius:18px; padding:14px 18px;
+  font-size:18px; line-height:1.35; box-shadow:var(--shadow); flex:1; min-width:0;
+}
+.bubble:after{content:''; position:absolute; left:-12px; top:26px; border:12px solid transparent; border-right-color:#fff;}
+.bubble b{color:var(--brand-d);}
+.bubble code{background:#efeaff; color:#5a3bd6; padding:1px 6px; border-radius:6px; font-family:'Courier New',monospace; font-size:.92em;}
+
+/* ============================ PROFILE PICKER ============================ */
+.hero-title{text-align:center; color:#fff; text-shadow:0 4px 0 rgba(0,0,0,.15); margin:18px 0 4px; font-size:clamp(38px,8vw,68px);}
+.hero-sub{text-align:center; color:#fff; opacity:.95; font-size:20px; margin:0 0 22px;}
+.profiles{display:flex; gap:18px; justify-content:center; flex-wrap:wrap; margin-top:10px;}
+.profile{
+  width:200px; padding:22px; text-align:center; cursor:pointer;
+  transition:transform .15s; position:relative;
+}
+.profile:active{transform:scale(.96);}
+.profile:hover{transform:translateY(-6px);}
+.avatar{width:96px; height:96px; border-radius:50%; margin:0 auto 10px; display:flex; align-items:center; justify-content:center; font-size:52px; box-shadow:inset 0 -6px 0 rgba(0,0,0,.12); overflow:hidden;}
+.profile h3{margin:6px 0 2px; font-size:26px;}
+.profile .lvl{color:var(--muted); font-size:15px; font-weight:600;}
+.profile .editpencil{position:absolute; top:8px; right:10px; background:#f3f1ff; border-radius:50%; width:36px; height:36px; font-size:17px; box-shadow:0 3px 0 rgba(0,0,0,.1); z-index:2;}
+.profile .editpencil:active{transform:translateY(2px);}
+.profile .bio{font-size:13px; color:var(--ink); opacity:.85; min-height:30px; margin:2px 4px 6px; line-height:1.25; font-weight:500;}
+/* avatar inside the edit pop-up */
+.editava{width:110px; height:110px; border-radius:50%; margin:0 auto 8px; display:flex; align-items:center; justify-content:center; font-size:58px; overflow:hidden; box-shadow:inset 0 -6px 0 rgba(0,0,0,.1);}
+.credit{text-align:center; color:#fff; opacity:.9; font-size:14px; margin-top:24px; font-weight:600;}
+.credit b{font-weight:800;}
+.profile .mini-bar{height:10px; background:#eee; border-radius:6px; margin-top:10px; overflow:hidden;}
+.profile .mini-bar i{display:block; height:100%; background:linear-gradient(90deg,var(--gold),var(--orange)); border-radius:6px;}
+
+/* ============================== GAME TOPBAR ============================== */
+.topbar{display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:14px 18px; margin-bottom:14px;}
+.topbar .who{display:flex; align-items:center; gap:10px;}
+.topbar .who .ava{width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:26px; overflow:hidden;}
+.stat{display:flex; align-items:center; gap:7px; background:#f3f1ff; padding:8px 14px; border-radius:14px; font-weight:700; font-size:18px; color:var(--brand-d);}
+.stat.gold{background:#fff5d6; color:#b8860b;}
+.stat.fire{background:#ffe6d6; color:#d2691e;}
+.xpwrap{flex:1 1 200px; min-width:160px;}
+.xpwrap .lbl{display:flex; justify-content:space-between; font-weight:600; font-size:14px; color:var(--muted); margin-bottom:4px;}
+.bar{height:18px; background:#eee; border-radius:10px; overflow:hidden; box-shadow:inset 0 2px 4px rgba(0,0,0,.1);}
+.bar i{display:block; height:100%; width:0; background:linear-gradient(90deg,var(--gold),var(--orange)); border-radius:10px; transition:width .8s cubic-bezier(.2,.9,.3,1.2);}
+.spacer{flex:1;}
+
+/* ============================== LEVEL MAP ============================== */
+.maptitle{color:#fff; text-shadow:0 3px 0 rgba(0,0,0,.15); text-align:center; font-size:34px; margin:6px 0 16px;}
+.levelgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:16px;}
+.lvlcard{padding:18px; text-align:center; cursor:pointer; position:relative; transition:transform .15s; overflow:hidden;}
+.lvlcard:hover{transform:translateY(-5px);}
+.lvlcard:active{transform:scale(.97);}
+.lvlcard .num{width:46px;height:46px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;margin:0 auto 10px; box-shadow:0 4px 0 var(--brand-d);}
+.lvlcard h3{margin:4px 0; font-size:20px;}
+.lvlcard p{margin:2px 0 0; font-size:14px; color:var(--muted); min-height:34px;}
+.lvlcard .ico{font-size:34px;}
+.lvlcard.done .num{background:var(--green); box-shadow:0 4px 0 var(--green-d);}
+.lvlcard.locked{opacity:.55; filter:grayscale(.5);}
+.lvlcard.locked .num{background:#b9b6cc; box-shadow:0 4px 0 #98859c;}
+.lvlcard .tick{position:absolute; top:8px; right:10px; font-size:22px;}
+.lvlcard .star{position:absolute; top:8px; left:10px; font-size:16px; letter-spacing:-2px;}
+
+/* ============================== LEVEL PLAY ============================== */
+.playhead{display:flex; align-items:flex-start; gap:14px; padding:14px 18px; margin-bottom:12px;}
+.editor-area{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+.pane{padding:0; overflow:hidden; display:flex; flex-direction:column; min-height:340px;}
+.pane .pane-h{display:flex; align-items:center; justify-content:space-between; padding:10px 16px; font-weight:700; font-size:16px; background:#f3f1ff; color:var(--brand-d);}
+.pane .pane-h .dot{width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:5px;}
+.CodeMirror{height:100% !important; min-height:300px; font-size:16px; font-family:'Courier New',monospace; border-radius:0 0 var(--radius) var(--radius);}
+#fallbackEditor{width:100%; min-height:300px; border:none; padding:14px; font-family:'Courier New',monospace; font-size:16px; resize:none; outline:none; flex:1;}
+#preview{flex:1; border:none; background:#fff; border-radius:0 0 var(--radius) var(--radius);}
+
+/* Goal + checklist */
+.goalbar{display:flex; gap:14px; align-items:stretch; margin-top:14px; flex-wrap:wrap;}
+.goalcard{flex:2 1 300px; padding:16px 18px;}
+.goalcard h4{margin:0 0 8px; font-size:18px; color:var(--brand-d); display:flex; align-items:center; gap:8px;}
+.checklist{list-style:none; margin:0; padding:0;}
+.checklist li{display:flex; align-items:center; gap:10px; padding:6px 0; font-size:17px; transition:color .3s;}
+.checklist li .box{width:26px;height:26px;border-radius:8px;border:3px solid #d8d4ec;display:flex;align-items:center;justify-content:center;font-size:16px;flex:0 0 auto; transition:all .3s;}
+.checklist li.ok{color:var(--green-d); font-weight:600;}
+.checklist li.ok .box{background:var(--green); border-color:var(--green); color:#fff; transform:scale(1.1);}
+.actioncard{flex:1 1 200px; padding:16px; display:flex; flex-direction:column; gap:10px; justify-content:center; align-items:center;}
+
+/* Hint pill */
+.hintpill{background:#fff7df; border:2px dashed var(--gold); color:#9a7b1a; padding:10px 14px; border-radius:14px; font-size:16px; margin-top:8px; display:none;}
+.hintpill.show{display:block; animation:pop .3s;}
+
+/* ============================== REWARDS ============================== */
+.section-h{color:#fff; text-shadow:0 3px 0 rgba(0,0,0,.15); text-align:center; font-size:32px; margin:8px 0 16px;}
+.badgegrid,.stickergrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:14px;}
+.badge{padding:16px 10px; text-align:center; transition:transform .15s;}
+.badge:hover{transform:translateY(-4px) rotate(-2deg);}
+.badge .emo{font-size:46px; display:block;}
+.badge.locked{opacity:.4; filter:grayscale(1);}
+.badge h4{margin:8px 0 2px; font-size:16px;}
+.badge p{margin:0; font-size:12px; color:var(--muted);}
+.themepick{display:flex; gap:12px; flex-wrap:wrap; justify-content:center;}
+.themechip{width:84px; height:84px; border-radius:18px; cursor:pointer; border:4px solid #fff; box-shadow:var(--shadow); position:relative; transition:transform .15s;}
+.themechip:active{transform:scale(.94);}
+.themechip.sel{border-color:var(--gold); transform:scale(1.05);}
+.themechip.lock{opacity:.45; filter:grayscale(.6); cursor:not-allowed;}
+.themechip span{position:absolute; bottom:4px; left:0; right:0; text-align:center; color:#fff; font-weight:700; font-size:12px; text-shadow:0 1px 3px rgba(0,0,0,.5);}
+
+/* Leaderboard */
+.board{padding:8px;}
+.boardrow{display:flex; align-items:center; gap:14px; padding:12px 16px; border-radius:16px; margin:6px; font-size:20px; font-weight:700;}
+.boardrow .rank{width:40px; text-align:center; font-size:26px;}
+.boardrow .ava{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;overflow:hidden;}
+.boardrow .nm{flex:1;}
+.boardrow .xp{color:#b8860b;}
+.boardrow.me{outline:3px solid var(--brand);}
+
+/* Nav row */
+.nav{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin:18px 0 30px;}
+
+/* ============================== MODAL ============================== */
+.modal-bg{position:fixed; inset:0; background:rgba(30,20,60,.55); display:none; align-items:center; justify-content:center; z-index:50; padding:20px;}
+.modal-bg.show{display:flex; animation:pop .3s;}
+.modal{background:#fff; border-radius:26px; padding:30px; max-width:420px; text-align:center; box-shadow:var(--shadow);}
+.modal .big-emo{font-size:80px; animation:bounce 1s ease infinite;}
+.modal h2{margin:8px 0; font-size:32px; color:var(--brand-d);}
+.modal p{font-size:19px; color:var(--ink);}
+.modal .reward-row{display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin:14px 0;}
+.modal .chip{background:#f3f1ff; border-radius:14px; padding:10px 16px; font-weight:700; font-size:18px;}
+
+/* Sound toggle (top-right floating) */
+.soundbtn{position:fixed; top:14px; right:14px; z-index:40; width:48px; height:48px; border-radius:50%; background:rgba(255,255,255,.9); font-size:24px; box-shadow:var(--shadow); display:flex; align-items:center; justify-content:center;}
+
+/* Confetti canvas */
+#confetti{position:fixed; inset:0; pointer-events:none; z-index:45;}
+
+/* Offline note */
+.netnote{display:none; text-align:center; color:#fff; font-size:14px; opacity:.85; margin-top:6px;}
+
+/* ===================== HOVER-BIO SPEECH BUBBLE ===================== */
+/* Hovering a kid's photo pops a little speech bubble with their bio. */
+.avatar-wrap{position:relative; display:inline-block;}
+.hoverbio{
+  position:absolute; left:50%; bottom:calc(100% + 12px); transform:translateX(-50%) scale(.9);
+  background:#fff; color:var(--ink); font-size:13px; font-weight:600; line-height:1.3;
+  padding:9px 12px; border-radius:14px; width:170px; box-shadow:var(--shadow);
+  opacity:0; pointer-events:none; transition:opacity .18s, transform .18s; z-index:30;
+}
+.hoverbio:after{content:''; position:absolute; left:50%; top:100%; transform:translateX(-50%);
+  border:9px solid transparent; border-top-color:#fff;}
+.avatar-wrap:hover .hoverbio, .avatar-wrap:focus-within .hoverbio, .hoverbio.show{
+  opacity:1; transform:translateX(-50%) scale(1); pointer-events:auto;}
+
+/* ===================== CORNER COCO (the helper mascot) ===================== */
+.coco-corner{position:fixed; right:14px; bottom:14px; z-index:38; display:none; align-items:flex-end; gap:6px; pointer-events:none;}
+.coco-corner.show{display:flex;}
+.coco-corner .coco-mascot{width:96px; height:96px; cursor:pointer; pointer-events:auto; filter:drop-shadow(0 6px 10px rgba(0,0,0,.25)); transition:transform .15s;}
+.coco-corner .coco-mascot:active{transform:scale(.92);}
+/* big happy bark-jump when a level is finished */
+@keyframes woofjump{0%{transform:translateY(0) rotate(0);}18%{transform:translateY(-18px) rotate(-7deg) scale(1.08);}36%{transform:translateY(0) rotate(0);}54%{transform:translateY(-14px) rotate(7deg) scale(1.06);}72%{transform:translateY(0) rotate(0);}86%{transform:translateY(-6px);}100%{transform:translateY(0);}}
+.coco-corner .coco-mascot.woofing{animation:woofjump .8s ease;}
+.coco-corner .coco-mascot .cody{width:96px; height:96px;}
+.coco-bubble{
+  position:relative; background:#fff; color:var(--ink); font-family:'Baloo 2',cursive; font-weight:600;
+  font-size:15px; line-height:1.3; padding:11px 14px; border-radius:16px 16px 4px 16px;
+  max-width:210px; box-shadow:var(--shadow); margin-bottom:30px; pointer-events:auto;
+  opacity:0; transform:translateY(8px) scale(.95); transition:opacity .25s, transform .25s;
+}
+.coco-bubble.show{opacity:1; transform:none;}
+.coco-bubble:after{content:''; position:absolute; right:14px; bottom:-10px; border:10px solid transparent; border-top-color:#fff; border-bottom:0;}
+.coco-bubble b{color:var(--brand-d);}
+
+/* ============================ MOBILE / iPad ============================ */
+@media (max-width:820px){
+  .editor-area{grid-template-columns:1fr;}
+  .pane{min-height:260px;}
+  .CodeMirror,#fallbackEditor{min-height:220px;}
+  .cody{width:88px;height:88px;}
+  .bubble{font-size:16px;}
+  .coco-corner .coco-mascot, .coco-corner .coco-mascot .cody{width:76px; height:76px;}
+  .coco-bubble{font-size:14px; max-width:170px; margin-bottom:24px;}
+}
+</style>
+</head>
+<body>
+
+<!-- decorative background blobs -->
+<div class="blob" style="width:200px;height:200px;background:#ff5fa2;top:-40px;left:-40px;"></div>
+<div class="blob" style="width:160px;height:160px;background:#ffc83d;bottom:40px;right:-30px;"></div>
+<div class="blob" style="width:140px;height:140px;background:#21c97a;top:40%;left:-50px;"></div>
+
+<button class="soundbtn" id="soundBtn" title="Sound on/off">🔊</button>
+<canvas id="confetti"></canvas>
+
+<!-- Coco the helper mascot — sits in the bottom-right of every game screen,
+     cheering the kids on with motivational and funny lines. Tap her for more! -->
+<div class="coco-corner" id="cocoCorner">
+  <div class="coco-bubble" id="cocoBubble"></div>
+  <div class="cody-holder coco-mascot" id="cornerCoco" title="Tap me!" onclick="cocoPoke()"></div>
+</div>
+
+<div class="wrap">
+
+  <!-- ====================== SCREEN: PROFILE PICKER ====================== -->
+  <section id="screen-profiles" class="screen active">
+    <h1 class="hero-title">Coco's Code Quest</h1>
+    <p class="hero-sub">Learn to build websites with <b>Coco the Code Collie</b>! 🐶</p>
+    <div style="display:flex; justify-content:center; margin-bottom:6px;">
+      <div class="cody-holder" id="introCody"></div>
+    </div>
+    <p style="text-align:center;color:#fff;font-size:22px;font-weight:600;margin:6px 0 18px;">Who's playing today?</p>
+    <div class="profiles" id="profileList"></div>
+    <p style="text-align:center;color:#fff;opacity:.9;font-size:15px;margin-top:14px;">Tap the ✏️ on your card to add your photo and a wee bio!</p>
+    <p class="netnote" id="netNote">📶 No wifi? No bother — the game still works, just with a plain editor.</p>
+    <p class="credit">🎮 Coco's Code Quest — made with 💜 by <b>Coach Sue</b></p>
+  </section>
+
+  <!-- ====================== SCREEN: LEVEL MAP ====================== -->
+  <section id="screen-map" class="screen">
+    <div class="card topbar" id="topbarMap"></div>
+    <h2 class="maptitle">Pick your level 🎯</h2>
+    <div class="levelgrid" id="levelGrid"></div>
+    <div class="nav">
+      <button class="btn ghost" onclick="editProfile(currentId)">✏️ My Profile</button>
+      <button class="btn ghost" onclick="go('rewards')">🏅 My Rewards</button>
+      <button class="btn ghost" onclick="go('board')">🏆 Leaderboard</button>
+      <button class="btn ghost" onclick="switchProfile()">🔄 Switch Player</button>
+    </div>
+    <p class="credit">Made with 💜 by <b>Coach Sue</b></p>
+  </section>
+
+  <!-- ====================== SCREEN: PLAY LEVEL ====================== -->
+  <section id="screen-play" class="screen">
+    <div class="card topbar" id="topbarPlay"></div>
+
+    <div class="card playhead">
+      <div class="cody-holder" id="playCody"></div>
+      <div class="bubble" id="codySpeech">Let's go!</div>
+    </div>
+
+    <div class="editor-area">
+      <div class="card pane">
+        <div class="pane-h"><span><span class="dot" style="background:var(--accent)"></span>Your code — type HTML here ✏️</span>
+          <button class="btn small ghost" onclick="resetCode()">↺ Reset</button>
+        </div>
+        <div id="editorMount" style="flex:1; display:flex;"></div>
+      </div>
+      <div class="card pane">
+        <div class="pane-h"><span><span class="dot" style="background:var(--green)"></span>Live preview — what you made 👀</span></div>
+        <iframe id="preview" title="preview"></iframe>
+      </div>
+    </div>
+
+    <div class="goalbar">
+      <div class="card goalcard">
+        <h4>🎯 <span id="goalTitle">Your mission</span></h4>
+        <ul class="checklist" id="checklist"></ul>
+        <div class="hintpill" id="hintPill"></div>
+      </div>
+      <div class="card actioncard">
+        <button class="btn green big" id="checkBtn" onclick="checkLevel()">✅ Check my work</button>
+        <button class="btn ghost small" onclick="showHint()">💡 Give me a hint</button>
+        <button class="btn ghost small" onclick="go('map')">🗺️ Back to map</button>
+      </div>
+    </div>
+    <div style="height:24px;"></div>
+  </section>
+
+  <!-- ====================== SCREEN: REWARDS ====================== -->
+  <section id="screen-rewards" class="screen">
+    <div class="card topbar" id="topbarRewards"></div>
+    <h2 class="section-h">🏅 Badges</h2>
+    <div class="badgegrid card" id="badgeGrid" style="padding:18px;"></div>
+
+    <h2 class="section-h">⭐ Sticker Book</h2>
+    <div class="stickergrid card" id="stickerGrid" style="padding:18px;"></div>
+
+    <h2 class="section-h">🎨 Themes</h2>
+    <div class="card" style="padding:18px;">
+      <p style="text-align:center;color:var(--muted);margin-top:0;">Unlock new looks by earning XP! Tap one you've unlocked.</p>
+      <div class="themepick" id="themePick"></div>
+    </div>
+    <div class="nav"><button class="btn" onclick="go('map')">🗺️ Back to map</button></div>
+  </section>
+
+  <!-- ====================== SCREEN: LEADERBOARD ====================== -->
+  <section id="screen-board" class="screen">
+    <div class="card topbar" id="topbarBoard"></div>
+    <h2 class="section-h">🏆 Leaderboard</h2>
+    <div class="card board" id="boardList"></div>
+    <p style="text-align:center;color:#fff;opacity:.9;">It's all friendly — everyone's a winner for having a go! 💜</p>
+    <div class="nav"><button class="btn" onclick="go('map')">🗺️ Back to map</button></div>
+  </section>
+
+</div>
+
+<!-- ====================== CELEBRATION MODAL ====================== -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal" id="modalBox"></div>
+</div>
+
+<script>
+/* =========================================================================
+   1. CODY THE CODE COLLIE  — drawn as inline SVG so it works offline.
+      We reuse the same SVG in a few places.
+========================================================================= */
+function codySVG(){
+  // Coco — a clever, cute black-and-tan terrier with floppy ears,
+  // tan eyebrows & muzzle, a white chest and an orange collar (like the photo).
+  return `
+  <svg class="cody wag" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-label="Coco the dog">
+    <!-- tail -->
+    <g class="tail" style="transform-origin:90px 92px;">
+      <path d="M86 95 q15 1 21 -10 q-1 14 -13 19 z" fill="#26242c"/>
+    </g>
+    <!-- body -->
+    <ellipse cx="60" cy="99" rx="31" ry="19" fill="#26242c"/>
+    <!-- tan back-leg patch + paws -->
+    <ellipse cx="84" cy="101" rx="8" ry="9" fill="#8a5a2b"/>
+    <ellipse cx="49" cy="115" rx="8" ry="5" fill="#8a5a2b"/>
+    <ellipse cx="71" cy="115" rx="8" ry="5" fill="#8a5a2b"/>
+    <!-- white chest blaze -->
+    <path d="M60 84 q-7 16 -3 30 q3 5 6 0 q4 -14 -3 -30z" fill="#f4f1ea"/>
+    <!-- orange collar -->
+    <path d="M40 82 q20 13 40 0 l-2 8 q-18 10 -36 0 z" fill="#e3742a"/>
+    <path d="M40 82 q20 13 40 0 l-1 3 q-19 11 -38 0 z" fill="#c95f1c"/>
+    <circle cx="60" cy="90" r="2.6" fill="#ffd23f" stroke="#c79a00" stroke-width=".5"/>
+    <!-- floppy ears (black outside, tan inside) -->
+    <path d="M31 28 q-17 11 -14 35 q13 6 23 -5 q-5 -18 -9 -30z" fill="#26242c"/>
+    <path d="M89 28 q17 11 14 35 q-13 6 -23 -5 q5 -18 9 -30z" fill="#26242c"/>
+    <path d="M32 35 q-9 9 -8 23 q8 2 13 -5 q-3 -11 -5 -18z" fill="#6e431f"/>
+    <path d="M88 35 q9 9 8 23 q-8 2 -13 -5 q3 -11 5 -18z" fill="#6e431f"/>
+    <!-- head -->
+    <path d="M60 22 q27 0 29 29 q1 25 -29 31 q-30 -6 -29 -31 q2 -29 29 -29z" fill="#26242c"/>
+    <!-- tan eyebrow dots -->
+    <ellipse cx="49" cy="45" rx="4.8" ry="3.1" fill="#c07d31"/>
+    <ellipse cx="71" cy="45" rx="4.8" ry="3.1" fill="#c07d31"/>
+    <!-- eyes (warm brown, clever glint) -->
+    <circle class="eye" cx="49" cy="55" r="6.4" fill="#4a3322"/>
+    <circle class="eye" cx="71" cy="55" r="6.4" fill="#4a3322"/>
+    <circle cx="51" cy="53" r="2.1" fill="#fff"/>
+    <circle cx="73" cy="53" r="2.1" fill="#fff"/>
+    <!-- tan muzzle sides + black nose + smile -->
+    <ellipse cx="46" cy="70" rx="6.5" ry="7.5" fill="#8a5a2b"/>
+    <ellipse cx="74" cy="70" rx="6.5" ry="7.5" fill="#8a5a2b"/>
+    <ellipse cx="60" cy="66" rx="6.6" ry="5" fill="#111014"/>
+    <path class="mouth" d="M60 71 q-6 8 -13 3 M60 71 q6 8 13 3" stroke="#111014" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+    <path d="M54 74 q6 7 12 0 q-6 5 -12 0z" fill="#8a5a2b"/>
+    <!-- rosy cheeks -->
+    <circle cx="39" cy="63" r="3" fill="#d98a8a" opacity=".45"/>
+    <circle cx="81" cy="63" r="3" fill="#d98a8a" opacity=".45"/>
+  </svg>`;
+}
+// Place a Cody into every holder element
+function mountCody(){
+  document.querySelectorAll('.cody-holder').forEach(h=>{ if(!h.querySelector('svg')) h.innerHTML = codySVG(); });
+}
+
+// Make Cody react. type: 'happy' | 'think' | 'idle'
+function codyReact(type){
+  document.querySelectorAll('.cody').forEach(c=>{
+    c.classList.remove('bounce','spin');
+    void c.offsetWidth; // restart animation
+    if(type==='happy'){ c.classList.add('spin'); }
+    else if(type==='think'){ c.classList.add('bounce'); }
+  });
+}
+// Cody says something in the play screen
+function codySay(html){ const s=document.getElementById('codySpeech'); if(s) s.innerHTML=html; }
+
+
+/* =========================================================================
+   1b. CORNER COCO — the helper mascot in the bottom-right of every screen.
+       She pops up with motivational and funny lines, personalised with the
+       playing kid's name. Tap her for a fresh one.
+========================================================================= */
+const COCO_LINES = {
+  // shown when a level opens
+  welcome:[
+    "C'mon {name}, this one's easy! 🐾",
+    "Ooh, a new challenge! Let's go, {name}! 🚀",
+    "This one's a doddle, {name}. Off ya go! 💪",
+    "I believe in you, {name}! Type away! ⌨️"
+  ],
+  // shown when they ask for a hint
+  hint:[
+    "Pssst… give the hint a wee read, {name}! 💡",
+    "No shame in a hint — even I use them! 🐶",
+    "Clue time! You'll have this cracked in no time. 🔍"
+  ],
+  // shown on a gentle nudge (not finished yet)
+  stuck:[
+    "So close, {name}! Have another go! 🐾",
+    "Don't give up — you're nearly there! 🌟",
+    "Every coder gets stuck. Shake it off! 🎶",
+    "Deep breath, {name}. You've got this! 💜"
+  ],
+  // shown on success
+  win:[
+    "GOOOAL! Brilliant, {name}! 🎉",
+    "Woohoo! I knew you could, {name}! 🏆",
+    "That's my {name} — tail-waggingly good! 🐕",
+    "Unreal! Up the {name}! 🙌"
+  ],
+  // random idle/funny lines — incl. Coco's own personality
+  idle:[
+    "Coding tip: every tag needs a buddy to close it! 🏷️",
+    "I'd type it myself but… no thumbs. 🐾",
+    "Did somebody say… treats? 🦴",
+    "You're pawsome at this, {name}! 🐕",
+    "Is it walkies time yet? 👀",
+    "Woof! That means 'keep going' in dog. 🐶",
+    "I chased my tail for an hour. Worth it. 🌀",
+    "Fun fact: I can't read, but you can! 📖",
+    "You're doing great, {name}. Honest pup's promise. 🐾",
+    "Press on, superstar! 🌟",
+    // Coco's teams 💚
+    "UP MAYO! ☘️ One day we'll bring Sam home, {name}! 🏐",
+    "C'mon the Limerick hurlers! 💚 Now back to your code, {name}!",
+    "Mayo for football, Limerick for hurling — and YOU for HTML, {name}! 🏆",
+    "Mayo til I die! 🟢🔴 …after this level, mind. {name}!",
+    // Coco's favourite snacks 🥒🌭🍔
+    "I'd do ANYTHING for a pickle right now. 🥒",
+    "Is that… sausage cakes I smell? 🌭 Focus, {name}!",
+    "Nothing beats my mummy's cheeseburgers. 🍔 Mmm.",
+    "Finish this and maybe Mummy makes cheeseburgers! 🍔 Go on, {name}!",
+    "Pickles, sausage cakes, cheeseburgers… sorry, what were we doing, {name}? 🤤"
+  ]
+};
+
+// Coco's personalised cheeky teases for each kid — she knows them well!
+// (Coco is a Man Utd fan; Daniel is Liverpool — friendly footy rivalry!)
+const COCO_KID = {
+  daniel:[
+    "C'mon, Mr Corrector — YOU tell ME how it's done! 😉",
+    "Howaya Danny Boy! Bet you spot the fix first. 🔍",
+    "Up the Red Devils, Danny Boy! Man Utd all the way! 😈🔴",
+    "A Liverpool fan, are ya? I'll forgive ya if you ace this, Danny Boy! 😜",
+    "Go on, Mr Corrector, show us your magic! ✨",
+    "Even a Liverpool fan can crack this one, Danny Boy! 🔴⚽"
+  ],
+  eabha:[
+    "Even Taylor knows the answer to this one, lil Bear! 🎤",
+    "You're a star with the hurl, lil Bear — but can ya code? Prove it! 🏑",
+    "C'mon lil Bear, give it a swing like a sliotar! 🏑",
+    "Benson Boone could code this in his sleep, lil Bear! 🎶",
+    "Finish up and there's a pesto sandwich with your name on it, lil Bear! 🥪",
+    "Brilliant hurler AND a brilliant coder? Show me, lil Bear! 🌟"
+  ],
+  joni:[
+    "C'mon Jo Jo, I thought you were the fastest triplet! 🏀",
+    "You can DANCE, Jo Jo — but can ya code? Let's see those moves! 💃",
+    "Quick as a flash, Jo Jo — show 'em how it's done! ⚡",
+    "Nail this one and chill with your Yoto, Jo Jo! 🎧",
+    "Bookworm AND a coder? Go on then, Jo Jo! 📚",
+    "Finish up — there's ribs and fruit waiting, Jo Jo! 🍖🍓"
+  ]
+};
+
+// The big prize for finishing TOP of the leaderboard — one dream per kid!
+// 'chase' = said when they're not top yet, 'win' = said when they're leading.
+const COCO_PRIZE = {
+  daniel:{
+    chase:"Finish TOP of the leaderboard, Danny Boy, and it's tickets to ANFIELD! ⚽🎟️ (I'll hold my nose 😈)",
+    win:"You're TOP, Danny Boy! Stay there and you're off to Anfield! ⚽🎟️"
+  },
+  eabha:{
+    chase:"Finish TOP of the leaderboard, lil Bear, and it's tickets to Taylor Swift's next concert! 🎤🎟️",
+    win:"You're TOP, lil Bear! Keep it up and those TayTay tickets are YOURS! 🎤🎟️"
+  },
+  joni:{
+    chase:"Finish TOP of the leaderboard, Jo Jo, and it's UNLIMITED Enid Blyton books! 📚✨",
+    win:"You're TOP, Jo Jo! Stay there for a never-ending pile of Enid Blyton books! 📚✨"
+  }
+};
+function cocoPrize(){
+  const p=COCO_PRIZE[currentId]; if(!p) return;
+  const myXp=getProfile(currentId).xp;
+  const topXp=Math.max.apply(null, PROFILES.map(pr=>getProfile(pr.id).xp));
+  const leading = myXp>0 && myXp>=topXp;
+  cocoSay(leading ? p.win : p.chase);
+}
+let cocoHideTimer=null;
+function cocoName(){ const p=PROFILES.find(p=>p.id===currentId); return p?p.name:'pal'; }
+function cocoSay(text){
+  const b=document.getElementById('cocoBubble'); if(!b) return;
+  b.innerHTML=text.replace(/\{name\}/g, cocoName());
+  b.classList.add('show');
+  codyReactCorner();
+  clearTimeout(cocoHideTimer);
+  cocoHideTimer=setTimeout(()=>b.classList.remove('show'), 6500);
+}
+// pick a random line from a category and say it
+function cocoRandom(cat){
+  let pool=(COCO_LINES[cat]||COCO_LINES.idle).slice();
+  // mix in this kid's personalised teases for the chatty moments
+  if((cat==='idle'||cat==='welcome'||cat==='stuck') && COCO_KID[currentId]){
+    pool=pool.concat(COCO_KID[currentId]);
+  }
+  // a wee reminder of the big leaderboard prize during quiet idle chatter
+  if(cat==='idle' && COCO_PRIZE[currentId]) pool.push(COCO_PRIZE[currentId].chase);
+  cocoSay(pool[Math.floor(Math.random()*pool.length)]);
+}
+// a little wag/bounce just for the corner Coco
+function codyReactCorner(){
+  const c=document.querySelector('#cornerCoco .cody'); if(!c) return;
+  c.classList.remove('bounce'); void c.offsetWidth; c.classList.add('bounce');
+}
+// tap Coco → playful bark + a fresh funny line
+function cocoPoke(){
+  Sound.badge(); cocoRandom('idle');
+}
+// end-of-level celebration: Coco jumps and barks "Woof woof!"
+function cocoWoof(){
+  Sound.woof();
+  const m=document.getElementById('cornerCoco');
+  if(m){ m.classList.remove('woofing'); void m.offsetWidth; m.classList.add('woofing'); }
+  const pool=COCO_LINES.win;
+  cocoSay('Woof woof! 🐶 '+pool[Math.floor(Math.random()*pool.length)]);
+}
+// show/hide the corner mascot depending on the screen
+function showCocoCorner(on){
+  const el=document.getElementById('cocoCorner'); if(!el) return;
+  el.classList.toggle('show', !!on && !!current);
+}
+// gentle idle chatter every so often while a game screen is open
+let cocoIdleTimer=null;
+function startCocoIdle(){
+  clearInterval(cocoIdleTimer);
+  cocoIdleTimer=setInterval(()=>{
+    const el=document.getElementById('cocoCorner');
+    const bubble=document.getElementById('cocoBubble');
+    if(el && el.classList.contains('show') && bubble && !bubble.classList.contains('show')){
+      cocoRandom(Math.random()<0.5?'idle':'welcome');
+    }
+  }, 16000);
+}
+
+
+/* =========================================================================
+   2. SOUNDS — generated with the Web Audio API so no sound files are needed
+      (works 100% offline). Soft, friendly, never scary.
+========================================================================= */
+const Sound = (function(){
+  let ctx=null, on=true;
+  function ac(){ if(!ctx){ try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return ctx; }
+  function tone(freq,start,dur,type='sine',vol=0.18){
+    const c=ac(); if(!c||!on) return;
+    const o=c.createOscillator(), g=c.createGain();
+    o.type=type; o.frequency.value=freq;
+    o.connect(g); g.connect(c.destination);
+    const t=c.currentTime+start;
+    g.gain.setValueAtTime(0,t);
+    g.gain.linearRampToValueAtTime(vol,t+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    o.start(t); o.stop(t+dur+0.05);
+  }
+  return {
+    setOn(v){ on=v; },
+    isOn(){ return on; },
+    tap(){ tone(420,0,0.08,'triangle',0.12); },
+    ding(){ tone(880,0,0.18,'sine',0.2); tone(1320,0.06,0.22,'sine',0.16); },
+    win(){ [523,659,784,1047].forEach((f,i)=>tone(f,i*0.1,0.3,'triangle',0.2)); },
+    levelup(){ [392,523,659,784,1047,1319].forEach((f,i)=>tone(f,i*0.09,0.32,'sine',0.18)); },
+    badge(){ [784,988,1319].forEach((f,i)=>tone(f,i*0.08,0.35,'triangle',0.2)); },
+    nudge(){ tone(300,0,0.16,'sine',0.14); tone(240,0.1,0.2,'sine',0.12); }, // gentle, not harsh
+    // Coco's happy "woof woof!" — two quick barks with a falling pitch
+    woof(){
+      const c=ac(); if(!c||!on) return;
+      [0,0.19].forEach(t=>{
+        const o=c.createOscillator(), g=c.createGain();
+        o.type='square';
+        const s=c.currentTime+t;
+        o.frequency.setValueAtTime(440,s);
+        o.frequency.exponentialRampToValueAtTime(170,s+0.12);
+        g.gain.setValueAtTime(0.0001,s);
+        g.gain.linearRampToValueAtTime(0.2,s+0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001,s+0.16);
+        o.connect(g); g.connect(c.destination);
+        o.start(s); o.stop(s+0.2);
+      });
+    }
+  };
+})();
+
+
+/* =========================================================================
+   3. CONFETTI — a quick canvas burst for celebrations.
+========================================================================= */
+const Confetti = (function(){
+  const cv=document.getElementById('confetti'); const cx=cv.getContext('2d');
+  let parts=[], raf=null;
+  function size(){ cv.width=innerWidth; cv.height=innerHeight; }
+  addEventListener('resize',size); size();
+  const colours=['#ff5fa2','#ffc83d','#21c97a','#21d4fd','#6d5dfc','#ff8a3d'];
+  function burst(n=140){
+    for(let i=0;i<n;i++){
+      parts.push({x:innerWidth/2+(Math.random()-.5)*200, y:innerHeight/3,
+        vx:(Math.random()-.5)*9, vy:Math.random()*-12-4,
+        g:0.35+Math.random()*0.25, s:6+Math.random()*8,
+        col:colours[(Math.random()*colours.length)|0], rot:Math.random()*6, vr:(Math.random()-.5)*0.4, life:90+Math.random()*40});
+    }
+    if(!raf) loop();
+  }
+  function loop(){
+    cx.clearRect(0,0,cv.width,cv.height);
+    parts.forEach(p=>{ p.x+=p.vx; p.y+=p.vy; p.vy+=p.g; p.rot+=p.vr; p.life--;
+      cx.save(); cx.translate(p.x,p.y); cx.rotate(p.rot); cx.fillStyle=p.col;
+      cx.fillRect(-p.s/2,-p.s/2,p.s,p.s*0.6); cx.restore();
+    });
+    parts=parts.filter(p=>p.life>0 && p.y<cv.height+40);
+    if(parts.length){ raf=requestAnimationFrame(loop); } else { cx.clearRect(0,0,cv.width,cv.height); raf=null; }
+  }
+  return { burst };
+})();
+
+
+/* =========================================================================
+   4. THE LEVELS  — one concept each, themed to GAA, hurling, basketball,
+      travel and music. To add a level, copy one object and edit it.
+
+      Each level has:
+        id, name, icon, concept (Cody's kid-friendly explanation),
+        goalTitle, starter (starting code in the editor),
+        checks: [{label, test:(doc, raw)=>true/false}]  (gentle ingredient checks),
+        bonus (optional extra check for +XP),
+        hints: friendly hint shown on demand,
+        badge: badge id awarded on completion (optional),
+        sticker: sticker emoji added to the sticker book.
+========================================================================= */
+
+// escape text so tag names like <h1> show as words, not real tags
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+// small helpers used by the checks
+const txt = el => (el&&el.textContent||'').trim();
+const has = (doc,sel) => doc.querySelector(sel)!=null;
+const count = (doc,sel) => doc.querySelectorAll(sel).length;
+const nonEmpty = (doc,sel) => [...doc.querySelectorAll(sel)].some(e=>txt(e).length>0);
+
+const LEVELS = [
+  {
+    id:1, name:"Throw-In", icon:"📣", badge:"first-touch", sticker:"📣",
+    concept:`Every webpage starts with a <b>heading</b> — big, bold words like a poster title. We use <code>&lt;h1&gt;</code> for the BIGGEST title and <code>&lt;h2&gt;</code> for a smaller one. Make a match-day poster for your favourite team!`,
+    goalTitle:"Make a match-day poster",
+    starter:`<h1>MATCH DAY!</h1>\n<h2>Put your team name here</h2>`,
+    checks:[
+      {label:"A big title using <h1>", test:doc=>nonEmpty(doc,'h1')},
+      {label:"A smaller line using <h2>", test:doc=>nonEmpty(doc,'h2')}
+    ],
+    bonus:{label:"Add a third heading <h3>", test:doc=>nonEmpty(doc,'h3')},
+    hints:`Type your title between <code>&lt;h1&gt;</code> and <code>&lt;/h1&gt;</code>. Then add a second line between <code>&lt;h2&gt;</code> and <code>&lt;/h2&gt;</code>. Tags come in pairs — an opening one and a closing one with a <code>/</code>!`
+  },
+  {
+    id:2, name:"The Story", icon:"✍️", badge:"big-talker", sticker:"✍️",
+    concept:`A <b>paragraph</b> is normal sentences — like writing about your hero. We use <code>&lt;p&gt;</code> for paragraphs. Write a few words about your favourite player!`,
+    goalTitle:"Write about your favourite player",
+    starter:`<h1>My Favourite Player</h1>\n<p>Write all about them here. What county do they play for? What makes them brilliant?</p>`,
+    checks:[
+      {label:"A heading at the top (<h1>)", test:doc=>nonEmpty(doc,'h1')},
+      {label:"A paragraph of writing (<p>)", test:doc=>nonEmpty(doc,'p')},
+      {label:"At least 15 letters in your paragraph", test:doc=>[...doc.querySelectorAll('p')].some(p=>txt(p).length>=15)}
+    ],
+    bonus:{label:"Write TWO paragraphs", test:doc=>count(doc,'p')>=2 && [...doc.querySelectorAll('p')].filter(p=>txt(p).length>0).length>=2},
+    hints:`Put your sentences between <code>&lt;p&gt;</code> and <code>&lt;/p&gt;</code>. Want another paragraph? Just add another <code>&lt;p&gt;...&lt;/p&gt;</code> underneath!`
+  },
+  {
+    id:3, name:"Picture This", icon:"🖼️", badge:"photo-bomb", sticker:"🖼️",
+    concept:`An <b>image</b> shows a picture. We use <code>&lt;img&gt;</code> with a <code>src</code> — that's the web address of the picture. Add a crest or photo to a player card! (The starter picture is a football — swap the link for any image link you like.)`,
+    goalTitle:"Build a player card with a picture",
+    starter:`<h1>Player Card</h1>\n<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Soccerball.svg/120px-Soccerball.svg.png" width="140">\n<p>Name: ____   County: ____</p>`,
+    checks:[
+      {label:"A heading (<h1>)", test:doc=>nonEmpty(doc,'h1')},
+      {label:"A picture with a src (<img src=\"...\">)", test:doc=>[...doc.querySelectorAll('img')].some(i=>(i.getAttribute('src')||'').trim().length>0)},
+      {label:"Some words about the player (<p>)", test:doc=>nonEmpty(doc,'p')}
+    ],
+    bonus:{label:"Give your image a width (e.g. width=\"140\")", test:doc=>[...doc.querySelectorAll('img')].some(i=>i.getAttribute('width'))},
+    hints:`An image tag looks like <code>&lt;img src="link-to-a-picture"&gt;</code>. It doesn't need a closing tag! Make sure the part inside the quotes is a real picture link.`
+  },
+  {
+    id:4, name:"Make the Link", icon:"🔗", badge:"playmaker", sticker:"🔗",
+    concept:`A <b>link</b> is clickable text that jumps to another page. We use <code>&lt;a href="..."&gt;</code> — <code>href</code> is where it goes. Build a fan hub that links to your favourite team or song!`,
+    goalTitle:"Make a clickable fan link",
+    starter:`<h1>My Fan Hub</h1>\n<a href="https://www.gaa.ie">Visit the GAA website</a>`,
+    checks:[
+      {label:"A heading (<h1>)", test:doc=>nonEmpty(doc,'h1')},
+      {label:"A link that goes somewhere (<a href=\"...\">)", test:doc=>[...doc.querySelectorAll('a')].some(a=>(a.getAttribute('href')||'').trim().length>3)},
+      {label:"Clickable words inside the link", test:doc=>[...doc.querySelectorAll('a')].some(a=>txt(a).length>0)}
+    ],
+    bonus:{label:"Add a SECOND link", test:doc=>[...doc.querySelectorAll('a')].filter(a=>(a.getAttribute('href')||'').length>3 && txt(a).length>0).length>=2},
+    hints:`A link looks like <code>&lt;a href="https://..."&gt;Click me&lt;/a&gt;</code>. The web address goes in the quotes, and the words people tap go between the tags.`
+  },
+  {
+    id:5, name:"The Setlist", icon:"🎵", badge:"headliner", sticker:"🎤",
+    concept:`A <b>list</b> stacks things neatly. <code>&lt;ul&gt;</code> makes a bullet list, and each item goes in an <code>&lt;li&gt;</code>. Make a setlist of your favourite Taylor Swift or Benson Boone songs!`,
+    goalTitle:"Make a song setlist",
+    starter:`<h1>My Concert Setlist 🎶</h1>\n<ul>\n  <li>Beautiful Things</li>\n  <li>Cruel Summer</li>\n  <li>Add your own!</li>\n</ul>`,
+    checks:[
+      {label:"A heading (<h1>)", test:doc=>nonEmpty(doc,'h1')},
+      {label:"A list (<ul> or <ol>)", test:doc=>has(doc,'ul')||has(doc,'ol')},
+      {label:"At least 3 songs (<li>)", test:doc=>[...doc.querySelectorAll('li')].filter(l=>txt(l).length>0).length>=3}
+    ],
+    bonus:{label:"Make it a numbered Top list with <ol>", test:doc=>has(doc,'ol') && count(doc,'ol li')>=3},
+    hints:`Start with <code>&lt;ul&gt;</code>, then add each song on its own line like <code>&lt;li&gt;Song name&lt;/li&gt;</code>, then finish with <code>&lt;/ul&gt;</code>. Swap <code>ul</code> for <code>ol</code> to get numbers!`
+  },
+  {
+    id:6, name:"Scoreboard", icon:"🏀", badge:"sharpshooter", sticker:"🏀",
+    concept:`A <b>div</b> or <b>section</b> is like a box that groups things together — handy for building a layout. Use boxes to make a basketball scoreboard with two teams!`,
+    goalTitle:"Build a 2-team scoreboard",
+    starter:`<h1>Scoreboard 🏀</h1>\n<section>\n  <div>\n    <h2>Home</h2>\n    <p>88</p>\n  </div>\n  <div>\n    <h2>Away</h2>\n    <p>84</p>\n  </div>\n</section>`,
+    checks:[
+      {label:"A heading (<h1>)", test:doc=>nonEmpty(doc,'h1')},
+      {label:"A box to group things (<section> or <div>)", test:doc=>has(doc,'section')||has(doc,'div')},
+      {label:"Two team boxes (2 or more <div>s)", test:doc=>count(doc,'div')>=2},
+      {label:"Scores or names inside the boxes", test:doc=>[...doc.querySelectorAll('div')].some(d=>txt(d).length>0)}
+    ],
+    bonus:{label:"Give each team a heading (<h2>)", test:doc=>count(doc,'h2')>=2},
+    hints:`A box looks like <code>&lt;div&gt; ...stuff... &lt;/div&gt;</code>. Put one box for the Home team and one for the Away team. You can put headings and scores inside each box!`
+  },
+  {
+    id:7, name:"County Colours", icon:"🎨", badge:"style-icon", sticker:"🎨",
+    concept:`Time to add <b>colour</b>! We use <code>style="..."</code> on a tag. Try <code>color</code> for text colour and <code>background-color</code> for the box colour. Paint your page in your county colours!`,
+    goalTitle:"Paint it in your county colours",
+    starter:`<h1 style="color:white; background-color:green; padding:14px;">Up the county! 💚</h1>\n<p style="color:gold;">Wear your colours with pride.</p>`,
+    checks:[
+      {label:"A heading (<h1>)", test:doc=>nonEmpty(doc,'h1')},
+      {label:"You used a style=\"...\" somewhere", test:(doc,raw)=>/style\s*=\s*["'][^"']*["']/i.test(raw)},
+      {label:"You set a colour (color or background-color)", test:(doc,raw)=>/(?:^|[^-])color\s*:/i.test(raw)||/background(?:-color)?\s*:/i.test(raw)}
+    ],
+    bonus:{label:"Use BOTH text colour and a background colour", test:(doc,raw)=>/[^-]color\s*:/i.test(' '+raw)&&/background(?:-color)?\s*:/i.test(raw)},
+    hints:`Add a style onto a tag like this: <code>&lt;h1 style="color:green; background-color:gold;"&gt;</code>. You can use colour names like <code>green</code>, <code>gold</code>, <code>navy</code>, <code>maroon</code>!`
+  },
+  {
+    id:8, name:"The Final", icon:"🏆", badge:"full-time", sticker:"🏆", boss:true,
+    concept:`This is the <b>BIG one</b> — put everything together! Build your very own fan page or travel bucket-list page. Use a heading, a paragraph, a picture, a link AND a list. You're the boss now! 💪`,
+    goalTitle:"Build your own page (use it all!)",
+    starter:`<h1>My Awesome Page</h1>\n<p>Tell everyone what this page is about!</p>\n<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Soccerball.svg/120px-Soccerball.svg.png" width="120">\n<h2>My Top Things</h2>\n<ul>\n  <li>One</li>\n  <li>Two</li>\n  <li>Three</li>\n</ul>\n<a href="https://www.gaa.ie">A cool link</a>`,
+    checks:[
+      {label:"A heading (<h1>)", test:doc=>nonEmpty(doc,'h1')},
+      {label:"A paragraph (<p>)", test:doc=>nonEmpty(doc,'p')},
+      {label:"A picture (<img src>)", test:doc=>[...doc.querySelectorAll('img')].some(i=>(i.getAttribute('src')||'').trim().length>0)},
+      {label:"A list with 3 items (<li> x3)", test:doc=>[...doc.querySelectorAll('li')].filter(l=>txt(l).length>0).length>=3},
+      {label:"A link (<a href>)", test:doc=>[...doc.querySelectorAll('a')].some(a=>(a.getAttribute('href')||'').length>3&&txt(a).length>0)}
+    ],
+    bonus:{label:"Add some colour with style=\"...\"", test:(doc,raw)=>/style\s*=\s*["'][^"']*color/i.test(raw)},
+    hints:`You've learned all of this already! Stack them up: a <code>&lt;h1&gt;</code>, then a <code>&lt;p&gt;</code>, an <code>&lt;img&gt;</code>, a <code>&lt;ul&gt;</code> with three <code>&lt;li&gt;</code>, and an <code>&lt;a&gt;</code> link. You've got this! 🌟`
+  }
+];
+
+const XP_PER_LEVEL = 100;
+const XP_BONUS = 25;
+const XP_PER_CODER_LEVEL = 200; // every 200 XP = "Coder Level up"
+
+
+/* =========================================================================
+   5. BADGES & THEMES
+========================================================================= */
+const BADGES = [
+  {id:"first-touch", emo:"⚽", name:"First Touch", desc:"Finish your first level"},
+  {id:"big-talker",  emo:"💬", name:"Big Talker", desc:"Master paragraphs"},
+  {id:"photo-bomb",  emo:"📸", name:"Photo Bomb", desc:"Add your first image"},
+  {id:"playmaker",   emo:"🎯", name:"Playmaker", desc:"Make a working link"},
+  {id:"headliner",   emo:"🎤", name:"Headliner", desc:"Build a song setlist"},
+  {id:"sharpshooter",emo:"🏀", name:"Sharpshooter", desc:"Build a scoreboard"},
+  {id:"style-icon",  emo:"🎨", name:"Style Icon", desc:"Add colour to a page"},
+  {id:"full-time",   emo:"🏆", name:"Full-Time Whistle", desc:"Finish ALL levels!"},
+  {id:"hat-trick",   emo:"🎩", name:"Hat-trick Hero", desc:"Finish 3 levels"},
+  {id:"tour-manager",emo:"✈️", name:"Tour Manager", desc:"Use a list (your bucket-list!)"},
+  {id:"streak-star", emo:"🔥", name:"Streak Star", desc:"Play 3 days in a row"},
+  {id:"perfectionist",emo:"💎",name:"Perfectionist", desc:"Get 5 bonus stars"}
+];
+
+const THEMES = [
+  {id:"",       name:"Classic", grad:"linear-gradient(135deg,#6d5dfc,#21d4fd)", xp:0},
+  {id:"pitch",  name:"Pitch",   grad:"linear-gradient(135deg,#11998e,#38ef7d)", xp:150},
+  {id:"ocean",  name:"Ocean",   grad:"linear-gradient(135deg,#1fa2ff,#12d8fa)", xp:300},
+  {id:"sunset", name:"Sunset",  grad:"linear-gradient(135deg,#ff7e5f,#feb47b)", xp:500},
+  {id:"night",  name:"Night",   grad:"linear-gradient(135deg,#3a1c71,#5f2c82)", xp:700}
+];
+
+/* Milestone stickers — special collectible stickers earned for reaching
+   milestones (not tied to a single level). Each has a test(p) on the
+   player's saved data. To add one, drop a new entry in here. */
+const MILESTONE_STICKERS = [
+  {id:"ms-onboard", emo:"🎟️", name:"On the Board",  desc:"Earn your first 100 XP",   test:p=>p.xp>=100},
+  {id:"ms-halfway", emo:"🌟", name:"Halfway Hero",  desc:"Finish 4 levels",          test:p=>p.completed.length>=4},
+  {id:"ms-onfire",  emo:"🔥", name:"On Fire",       desc:"Play 3 days in a row",     test:p=>p.streak>=3},
+  {id:"ms-bonus",   emo:"💎", name:"Bonus Beast",   desc:"Collect 3 bonus stars",    test:p=>p.bonus.length>=3},
+  {id:"ms-champ",   emo:"👑", name:"XP Champ",      desc:"Reach 500 XP",             test:p=>p.xp>=500},
+  {id:"ms-legend",  emo:"🏆", name:"Quest Legend",  desc:"Finish the whole Quest!",  test:p=>p.completed.length>=LEVELS.length}
+];
+
+
+/* =========================================================================
+   6. PROFILES & SAVING  — each kid's progress saved on the device.
+========================================================================= */
+const PROFILES = [
+  {id:"daniel", name:"Daniel", emo:"⚽", colour:"#6d5dfc"},
+  {id:"eabha",  name:"Eabha",  emo:"🎤", colour:"#ff5fa2"},
+  {id:"joni",   name:"Joni",   emo:"🏀", colour:"#ff8a3d"}
+];
+const SAVE_KEY = "codequest.v1";
+
+function loadAll(){
+  try{ return JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; }catch(e){ return {}; }
+}
+function saveAll(data){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(data)); }catch(e){} }
+
+// Get (or create) one kid's save data
+function getProfile(id){
+  const all = loadAll();
+  if(!all[id]){
+    all[id] = { xp:0, completed:[], bonus:[], badges:[], theme:"",
+                streak:0, lastPlayed:null, code:{}, photo:null, bio:"", mstickers:[] };
+    saveAll(all);
+  }
+  // make sure new fields exist for older saves
+  const p = all[id];
+  p.xp=p.xp||0; p.completed=p.completed||[]; p.bonus=p.bonus||[];
+  p.badges=p.badges||[]; p.theme=p.theme||""; p.streak=p.streak||0;
+  p.lastPlayed=p.lastPlayed||null; p.code=p.code||{};
+  p.photo=p.photo||null; p.bio=p.bio||""; p.mstickers=p.mstickers||[];
+  return p;
+}
+function putProfile(id,p){ const all=loadAll(); all[id]=p; saveAll(all); }
+
+let currentId = null;        // which kid is playing
+let current = null;          // their data
+let activeLevel = null;      // level object being played
+let editor = null;           // CodeMirror instance (or null if fallback)
+let usingFallback = false;
+
+
+/* ---- streak handling: bump when they play on a new day ---- */
+function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+function dayDiff(a,b){
+  const pa=a.split('-').map(Number), pb=b.split('-').map(Number);
+  const da=new Date(pa[0],pa[1]-1,pa[2]), db=new Date(pb[0],pb[1]-1,pb[2]);
+  return Math.round((db-da)/86400000);
+}
+function updateStreak(p){
+  const t=todayStr();
+  if(p.lastPlayed===t) return; // already counted today
+  if(p.lastPlayed){
+    const diff=dayDiff(p.lastPlayed,t);
+    if(diff===1) p.streak=(p.streak||0)+1;       // next day → keep streak going
+    else if(diff>1) p.streak=1;                  // missed days → restart
+  } else {
+    p.streak=1;
+  }
+  p.lastPlayed=t;
+  if(p.streak>=3 && !p.badges.includes('streak-star')) p.badges.push('streak-star');
+}
+
+
+/* =========================================================================
+   7. SCREEN NAVIGATION
+========================================================================= */
+function go(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+  window.scrollTo(0,0);
+  if(name==='map') renderMap();
+  if(name==='rewards') renderRewards();
+  if(name==='board') renderBoard();
+  // Coco helper: show on game screens, hide on the profile picker
+  showCocoCorner(name!=='profiles');
+  if(name==='map') cocoRandom('welcome');
+  if(name==='board') cocoPrize();   // dangle the big prize on the leaderboard!
+  Sound.tap();
+}
+
+function switchProfile(){ currentId=null; current=null; showCocoCorner(false); renderProfiles(); go('profiles'); }
+
+// Show the kid's uploaded photo if they have one, otherwise their emoji.
+function avatarHTML(prof, photo){
+  return photo
+    ? `<img src="${photo}" alt="" style="width:100%;height:100%;object-fit:cover;">`
+    : prof.emo;
+}
+
+// Topbar (player + XP + streak) is shown on several screens
+function topbarHTML(){
+  const lvl = Math.floor(current.xp / XP_PER_CODER_LEVEL) + 1;
+  const into = current.xp % XP_PER_CODER_LEVEL;
+  const pct = Math.round(into / XP_PER_CODER_LEVEL * 100);
+  const prof = PROFILES.find(p=>p.id===currentId);
+  return `
+    <div class="who">
+      <div class="avatar-wrap"><div class="ava" style="background:${prof.colour}33" tabindex="0">${avatarHTML(prof,current.photo)}</div>${current.bio?`<div class="hoverbio">🐶 ${esc(current.bio)}</div>`:''}</div>
+      <div><div style="font-weight:800;font-size:18px;line-height:1">${prof.name}</div>
+      <div style="font-size:13px;color:var(--muted)">Coder Level ${lvl}</div></div>
+    </div>
+    <div class="xpwrap">
+      <div class="lbl"><span>⭐ ${current.xp} XP</span><span>${into}/${XP_PER_CODER_LEVEL} to next level</span></div>
+      <div class="bar"><i style="width:${pct}%"></i></div>
+    </div>
+    <div class="stat gold">🏅 ${current.badges.length}</div>
+    <div class="stat fire">🔥 ${current.streak}</div>`;
+}
+function paintTopbars(){
+  if(!current) return;   // no-one is playing yet (e.g. editing from the picker)
+  ['topbarMap','topbarPlay','topbarRewards','topbarBoard'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.innerHTML=topbarHTML();
+  });
+}
+
+
+/* =========================================================================
+   8. PROFILE PICKER SCREEN
+========================================================================= */
+function renderProfiles(){
+  const wrap=document.getElementById('profileList');
+  wrap.innerHTML='';
+  PROFILES.forEach(prof=>{
+    const p=getProfile(prof.id);
+    const pct=Math.round(p.completed.length/LEVELS.length*100);
+    const card=document.createElement('div');
+    card.className='profile card';
+    const bioText = p.bio ? esc(p.bio) : '<span style="opacity:.55">Tap ✏️ to add your photo &amp; bio</span>';
+    card.innerHTML=`
+      <button class="editpencil" title="Add my photo & bio" onclick="event.stopPropagation();editProfile('${prof.id}')">✏️</button>
+      <div class="avatar-wrap">
+        <div class="avatar" style="background:${prof.colour}33" tabindex="0">${avatarHTML(prof,p.photo)}</div>
+        ${p.bio?`<div class="hoverbio">🐶 ${esc(p.bio)}</div>`:''}
+      </div>
+      <h3>${prof.name}</h3>
+      <div class="bio">${bioText}</div>
+      <div class="lvl">${p.completed.length}/${LEVELS.length} levels · ${p.xp} XP</div>
+      <div class="mini-bar"><i style="width:${pct}%"></i></div>`;
+    card.onclick=()=>chooseProfile(prof.id);
+    wrap.appendChild(card);
+  });
+  mountCody();
+}
+function chooseProfile(id){
+  Sound.tap();
+  currentId=id;
+  current=getProfile(id);
+  updateStreak(current);
+  awardMilestoneStickers();   // unlock e.g. streak stickers on login
+  putProfile(id,current);
+  applyTheme(current.theme);
+  go('map');
+}
+
+/* ---- Let each kid add their own photo + short bio (saved on the device) ---- */
+let editingId=null, editPhotoTmp;   // editPhotoTmp = a newly chosen photo (data URL)
+function editProfile(id){
+  if(!id) return;
+  Sound.tap();
+  editingId=id; editPhotoTmp=undefined;
+  const prof=PROFILES.find(p=>p.id===id);
+  const p=getProfile(id);
+  const box=document.getElementById('modalBox');
+  box.innerHTML=`
+    <h2 style="margin-top:0">${prof.name}'s Profile ${prof.emo}</h2>
+    <div class="editava" id="editAva" style="background:${prof.colour}33">${avatarHTML(prof,p.photo)}</div>
+    <label class="btn ghost small" style="display:inline-flex;cursor:pointer;">📷 Choose a photo
+      <input id="photoInput" type="file" accept="image/*" style="display:none" onchange="handlePhotoFile(this.files[0])">
+    </label>
+    <div style="font-size:13px;color:var(--muted);margin:6px 0 10px;">Pick a photo of yourself — it stays on this iPad. 🔒</div>
+    <textarea id="bioInput" maxlength="140" placeholder="Write a wee bio… e.g. I'm 10, I love hurling, basketball and Taylor Swift!"
+      style="width:100%;min-height:74px;border:2px solid #ddd;border-radius:14px;padding:10px;font-family:inherit;font-size:15px;resize:none;outline:none;">${esc(p.bio||'')}</textarea>
+    <div class="reward-row" style="margin-top:14px">
+      <button class="btn green" onclick="saveProfileEdit()">💾 Save</button>
+      <button class="btn ghost" onclick="closeModal()">Cancel</button>
+    </div>`;
+  document.getElementById('modalBg').classList.add('show');
+}
+// Read the chosen image, shrink it to keep saving small, show a live preview.
+function handlePhotoFile(file){
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      const max=256, sc=Math.min(1, max/Math.max(img.width,img.height));
+      const w=Math.round(img.width*sc), h=Math.round(img.height*sc);
+      const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      editPhotoTmp=cv.toDataURL('image/jpeg',0.85);
+      const av=document.getElementById('editAva');
+      if(av) av.innerHTML=`<img src="${editPhotoTmp}" alt="" style="width:100%;height:100%;object-fit:cover;">`;
+      Sound.tap();
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function saveProfileEdit(){
+  const p=getProfile(editingId);
+  if(editPhotoTmp!==undefined) p.photo=editPhotoTmp;     // only change photo if a new one was picked
+  const bio=document.getElementById('bioInput');
+  if(bio) p.bio=bio.value.trim();
+  putProfile(editingId,p);
+  if(currentId===editingId) current=p;                   // keep the live copy in sync
+  Sound.ding(); Confetti.burst(40);
+  closeModal();
+  renderProfiles();
+  paintTopbars();
+  if(document.getElementById('screen-board').classList.contains('active')) renderBoard();
+}
+
+
+/* =========================================================================
+   9. LEVEL MAP SCREEN
+========================================================================= */
+function isUnlocked(level){
+  if(level.id===1) return true;
+  // a level unlocks when the previous one is completed
+  return current.completed.includes(level.id-1);
+}
+function renderMap(){
+  paintTopbars();
+  const grid=document.getElementById('levelGrid');
+  grid.innerHTML='';
+  LEVELS.forEach(lv=>{
+    const done=current.completed.includes(lv.id);
+    const unlocked=isUnlocked(lv);
+    const gotBonus=current.bonus.includes(lv.id);
+    const card=document.createElement('div');
+    card.className='lvlcard card'+(done?' done':'')+(unlocked?'':' locked');
+    card.innerHTML=`
+      ${done?'<div class="tick">✅</div>':''}
+      ${gotBonus?'<div class="star">⭐</div>':''}
+      <div class="num">${unlocked?lv.id:'🔒'}</div>
+      <div class="ico">${lv.icon}</div>
+      <h3>${lv.name}</h3>
+      <p>${lv.goalTitle}</p>`;
+    if(unlocked) card.onclick=()=>openLevel(lv.id);
+    else card.onclick=()=>{ Sound.nudge(); flashLocked(card); };
+    grid.appendChild(card);
+  });
+}
+function flashLocked(card){
+  card.animate([{transform:'translateX(0)'},{transform:'translateX(-6px)'},{transform:'translateX(6px)'},{transform:'translateX(0)'}],{duration:300});
+}
+
+
+/* =========================================================================
+   10. PLAY A LEVEL  — editor + live preview + goal checking
+========================================================================= */
+function openLevel(id){
+  activeLevel = LEVELS.find(l=>l.id===id);
+  paintTopbars();
+  document.getElementById('goalTitle').textContent = activeLevel.goalTitle;
+  codySay(activeLevel.concept);
+  document.getElementById('hintPill').classList.remove('show');
+
+  // build the checklist
+  const cl=document.getElementById('checklist'); cl.innerHTML='';
+  activeLevel.checks.forEach((c,i)=>{
+    const li=document.createElement('li'); li.id='chk'+i;
+    li.innerHTML=`<span class="box">·</span><span>${esc(c.label)}</span>`;
+    cl.appendChild(li);
+  });
+
+  // starting code: use their saved code for this level if any, else the starter
+  const saved = current.code[id];
+  const startCode = (saved && saved.length) ? saved : activeLevel.starter;
+  buildEditor(startCode);
+
+  go('play');
+  cocoRandom('welcome');   // Coco cheers them into the level
+  setTimeout(()=>{ updatePreview(); liveCheck(); }, 60);
+}
+
+// Build the editor: CodeMirror if it loaded, otherwise a plain textarea.
+function buildEditor(code){
+  const mount=document.getElementById('editorMount');
+  mount.innerHTML='';
+  if(window.CodeMirror){
+    usingFallback=false;
+    const ta=document.createElement('textarea'); mount.appendChild(ta);
+    editor=CodeMirror.fromTextArea(ta,{
+      value:code, mode:'htmlmixed', lineNumbers:true, lineWrapping:true,
+      autoCloseTags:true, theme:'default'
+    });
+    editor.setValue(code);
+    editor.on('change',onCodeChange);
+    setTimeout(()=>editor.refresh(),50);
+  } else {
+    // Fallback plain editor (e.g. no wifi) — still fully usable!
+    usingFallback=true;
+    const ta=document.createElement('textarea'); ta.id='fallbackEditor';
+    ta.value=code; ta.spellcheck=false;
+    ta.addEventListener('input',onCodeChange);
+    mount.appendChild(ta);
+    editor=null;
+  }
+}
+function getCode(){
+  if(editor) return editor.getValue();
+  const ta=document.getElementById('fallbackEditor'); return ta?ta.value:'';
+}
+function setCode(c){
+  if(editor) editor.setValue(c);
+  else { const ta=document.getElementById('fallbackEditor'); if(ta) ta.value=c; }
+}
+
+let changeTimer=null;
+function onCodeChange(){
+  // save their code + live update preview + live check (debounced)
+  clearTimeout(changeTimer);
+  changeTimer=setTimeout(()=>{
+    if(current && activeLevel){
+      current.code[activeLevel.id]=getCode();
+      putProfile(currentId,current);
+    }
+    updatePreview();
+    liveCheck();
+  },180);
+}
+
+function updatePreview(){
+  const code=getCode();
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8">
+    <style>body{font-family:'Trebuchet MS',Verdana,sans-serif;padding:14px;color:#222;}
+    img{max-width:100%;} a{color:#1273e6;}</style></head>
+    <body>${code}</body></html>`;
+  document.getElementById('preview').srcdoc=html;
+}
+
+// Parse the kid's HTML and see which goal ingredients are present
+function parseDoc(){
+  const raw=getCode();
+  const doc=new DOMParser().parseFromString('<body>'+raw+'</body>','text/html');
+  return {doc, raw};
+}
+
+// Live (quiet) check — just ticks boxes as they type, no celebration
+function liveCheck(){
+  if(!activeLevel) return;
+  const {doc,raw}=parseDoc();
+  activeLevel.checks.forEach((c,i)=>{
+    let ok=false; try{ ok=c.test(doc,raw); }catch(e){ ok=false; }
+    const li=document.getElementById('chk'+i);
+    if(!li) return;
+    li.classList.toggle('ok',ok);
+    li.querySelector('.box').textContent=ok?'✓':'·';
+  });
+}
+
+// The big "Check my work" button — celebrate or gently nudge
+function checkLevel(){
+  if(!activeLevel) return;
+  const {doc,raw}=parseDoc();
+  let allOk=true; let firstMissing=null;
+  activeLevel.checks.forEach((c,i)=>{
+    let ok=false; try{ ok=c.test(doc,raw); }catch(e){ ok=false; }
+    if(!ok && firstMissing===null) firstMissing=c.label;
+    if(!ok) allOk=false;
+  });
+  liveCheck();
+
+  if(allOk){
+    completeLevel(doc,raw);
+  } else {
+    // gentle, friendly nudge — NOT a scary error
+    Sound.nudge();
+    codyReact('think');
+    const encouragements=["So close!","Nearly there!","Great start!","You're almost there!","Good effort!"];
+    const e=encouragements[Math.floor((current.xp+raw.length)%encouragements.length)];
+    codySay(`<b>${e}</b> 🐾 You still need: <b>${esc(firstMissing)}</b>.<br>Tap <b>💡 hint</b> if you'd like a clue!`);
+    const pill=document.getElementById('hintPill');
+    pill.innerHTML=`👉 Missing: <b>${esc(firstMissing)}</b>`;
+    pill.classList.add('show');
+    cocoRandom('stuck');   // Coco keeps spirits up
+  }
+}
+
+function completeLevel(doc,raw){
+  const id=activeLevel.id;
+  const firstTime=!current.completed.includes(id);
+
+  // award XP + record completion
+  let gained=0;
+  if(firstTime){ current.completed.push(id); gained+=XP_PER_LEVEL; }
+
+  // bonus star?
+  let gotBonus=false;
+  if(activeLevel.bonus){
+    let bok=false; try{ bok=activeLevel.bonus.test(doc,raw); }catch(e){}
+    if(bok && !current.bonus.includes(id)){ current.bonus.push(id); gained+=XP_BONUS; gotBonus=true; }
+  }
+
+  const beforeLvl=Math.floor(current.xp/XP_PER_CODER_LEVEL)+1;
+  current.xp+=gained;
+  const afterLvl=Math.floor(current.xp/XP_PER_CODER_LEVEL)+1;
+  const leveledUp = afterLvl>beforeLvl;
+
+  // award badges + milestone stickers
+  const newBadges=awardBadgesFor(id, doc, raw);
+  const newStickers=awardMilestoneStickers();
+
+  putProfile(currentId,current);
+
+  // celebrate! Coco animates and barks "Woof woof!"
+  Sound.win(); Confetti.burst(160); codyReact('happy');
+  setTimeout(()=>cocoWoof(), 350);
+  if(leveledUp) setTimeout(()=>Sound.levelup(),400);
+  if(newBadges.length || newStickers.length) setTimeout(()=>Sound.badge(),700);
+
+  showCelebration(firstTime, gained, gotBonus, leveledUp, afterLvl, newBadges, newStickers);
+}
+
+// Decide which badges to give. Returns the list of NEWLY earned badges.
+function awardBadgesFor(levelId, doc, raw){
+  const newly=[];
+  const give=id=>{ if(!current.badges.includes(id)){ current.badges.push(id); newly.push(id); } };
+
+  const lvl=LEVELS.find(l=>l.id===levelId);
+  if(lvl && lvl.badge) give(lvl.badge);                 // per-level badge
+
+  if(current.completed.length>=3) give('hat-trick');    // 3 levels done
+  if(levelId===5) give('tour-manager');                 // lists = bucket lists!
+  if(current.completed.length>=LEVELS.length) give('full-time');
+  if(current.bonus.length>=5) give('perfectionist');
+
+  return newly;
+}
+
+// Award any milestone stickers the player has just earned. Returns the new ones.
+function awardMilestoneStickers(){
+  const newly=[];
+  MILESTONE_STICKERS.forEach(s=>{
+    if(!current.mstickers.includes(s.id) && s.test(current)){
+      current.mstickers.push(s.id); newly.push(s);
+    }
+  });
+  return newly;
+}
+
+
+/* =========================================================================
+   11. CELEBRATION MODAL
+========================================================================= */
+function showCelebration(firstTime, gained, gotBonus, leveledUp, lvl, newBadges, newStickers){
+  newStickers=newStickers||[];
+  const box=document.getElementById('modalBox');
+  const titles=["Brilliant!","Class!","Massive!","Savage!","Top class!","Unreal!"];
+  const title=titles[Math.floor((current.xp)%titles.length)];
+
+  let badgesHTML='';
+  if(newBadges.length){
+    badgesHTML='<div class="reward-row">'+newBadges.map(id=>{
+      const b=BADGES.find(x=>x.id===id);
+      return `<div class="chip">${b.emo} ${b.name}</div>`;
+    }).join('')+'</div><p style="margin:4px 0;font-size:15px;color:var(--muted)">New badge'+(newBadges.length>1?'s':'')+' unlocked!</p>';
+  }
+
+  let stickersHTML='';
+  if(newStickers.length){
+    stickersHTML='<div class="reward-row">'+newStickers.map(s=>
+      `<div class="chip" style="background:#fff0f6">${s.emo} ${s.name}</div>`
+    ).join('')+'</div><p style="margin:4px 0;font-size:15px;color:var(--muted)">🎉 Milestone sticker'+(newStickers.length>1?'s':'')+' earned!</p>';
+  }
+
+  const nextLevel = LEVELS.find(l=>l.id===activeLevel.id+1);
+  const hasNext = nextLevel && true;
+
+  box.innerHTML=`
+    <div class="big-emo">${activeLevel.boss?'🏆':'🎉'}</div>
+    <h2>${activeLevel.boss?'YOU DID IT!':title}</h2>
+    <p>${firstTime?`You finished <b>${activeLevel.name}</b>!`:`Nice — you nailed <b>${activeLevel.name}</b> again!`}</p>
+    <div class="reward-row">
+      ${gained>0?`<div class="chip">⭐ +${gained} XP</div>`:''}
+      ${gotBonus?`<div class="chip">🌟 Bonus star!</div>`:''}
+      ${leveledUp?`<div class="chip">⬆️ Coder Level ${lvl}!</div>`:''}
+    </div>
+    ${badgesHTML}
+    ${stickersHTML}
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:8px;">
+      ${hasNext && firstTime ? `<button class="btn green big" onclick="closeModal();openLevel(${nextLevel.id})">Next level →</button>`:''}
+      ${activeLevel.boss && current.completed.length>=LEVELS.length ? `<button class="btn pink big" onclick="closeModal();go('rewards')">See my trophies 🏅</button>`:''}
+      <button class="btn ghost" onclick="closeModal();go('map')">🗺️ Map</button>
+    </div>`;
+  document.getElementById('modalBg').classList.add('show');
+  codySay(`<b>${title}</b> You finished this level! 🐶`);
+}
+function closeModal(){ document.getElementById('modalBg').classList.remove('show'); }
+
+
+/* =========================================================================
+   12. HINTS / RESET
+========================================================================= */
+function showHint(){
+  if(!activeLevel) return;
+  Sound.tap(); codyReact('think');
+  const pill=document.getElementById('hintPill');
+  pill.innerHTML='💡 '+activeLevel.hints;
+  pill.classList.add('show');
+  codySay(activeLevel.hints);
+  cocoRandom('hint');
+}
+function resetCode(){
+  if(!activeLevel) return;
+  Sound.tap();
+  setCode(activeLevel.starter);
+  onCodeChange();
+}
+
+
+/* =========================================================================
+   13. REWARDS SCREEN (badges, stickers, themes)
+========================================================================= */
+function renderRewards(){
+  paintTopbars();
+  // badges
+  const bg=document.getElementById('badgeGrid'); bg.innerHTML='';
+  BADGES.forEach(b=>{
+    const got=current.badges.includes(b.id);
+    const d=document.createElement('div');
+    d.className='badge card'+(got?'':' locked');
+    d.innerHTML=`<span class="emo">${b.emo}</span><h4>${b.name}</h4><p>${got?b.desc:'🔒 '+b.desc}</p>`;
+    bg.appendChild(d);
+  });
+  // keep milestone stickers up to date (e.g. streak earned since last visit)
+  awardMilestoneStickers(); putProfile(currentId,current);
+  // stickers — one per level completed, plus special milestone stickers
+  const sg=document.getElementById('stickerGrid'); sg.innerHTML='';
+  LEVELS.forEach(lv=>{
+    const got=current.completed.includes(lv.id);
+    const d=document.createElement('div');
+    d.className='badge card'+(got?'':' locked');
+    d.innerHTML=`<span class="emo">${got?lv.sticker:'❔'}</span><h4>${lv.name}</h4>`;
+    sg.appendChild(d);
+  });
+  MILESTONE_STICKERS.forEach(s=>{
+    const got=current.mstickers.includes(s.id);
+    const d=document.createElement('div');
+    d.className='badge card'+(got?'':' locked');
+    d.innerHTML=`<span class="emo">${got?s.emo:'❔'}</span><h4>${s.name}</h4><p>${got?s.desc:'🔒 '+s.desc}</p>`;
+    sg.appendChild(d);
+  });
+  // themes
+  const tp=document.getElementById('themePick'); tp.innerHTML='';
+  THEMES.forEach(t=>{
+    const unlocked=current.xp>=t.xp;
+    const chip=document.createElement('div');
+    chip.className='themechip'+(current.theme===t.id?' sel':'')+(unlocked?'':' lock');
+    chip.style.background=t.grad;
+    chip.innerHTML=`<span>${unlocked?t.name:'🔒 '+t.xp+'XP'}</span>`;
+    if(unlocked) chip.onclick=()=>pickTheme(t.id);
+    else chip.onclick=()=>Sound.nudge();
+    tp.appendChild(chip);
+  });
+}
+function pickTheme(id){
+  Sound.ding();
+  current.theme=id; putProfile(currentId,current);
+  applyTheme(id); renderRewards();
+}
+function applyTheme(id){
+  document.body.className='';
+  if(id) document.body.classList.add('theme-'+id);
+}
+
+
+/* =========================================================================
+   14. LEADERBOARD SCREEN — friendly comparison of the three kids
+========================================================================= */
+function renderBoard(){
+  paintTopbars();
+  const rows=PROFILES.map(prof=>{
+    const p=getProfile(prof.id);
+    return {prof, xp:p.xp, done:p.completed.length, badges:p.badges.length, photo:p.photo, bio:p.bio};
+  }).sort((a,b)=>b.xp-a.xp);
+  const medals=['🥇','🥈','🥉'];
+  const list=document.getElementById('boardList'); list.innerHTML='';
+  rows.forEach((r,i)=>{
+    const row=document.createElement('div');
+    row.className='boardrow'+(r.prof.id===currentId?' me':'');
+    row.style.background=r.prof.colour+'1a';
+    row.innerHTML=`
+      <div class="rank">${medals[i]||(i+1)}</div>
+      <div class="ava" style="background:${r.prof.colour}33">${avatarHTML(r.prof,r.photo)}</div>
+      <div class="nm">${r.prof.name}
+        ${r.bio?`<div style="font-size:13px;color:var(--ink);opacity:.8;font-weight:600;font-style:italic">🐶 ${esc(r.bio)}</div>`:''}
+        <div style="font-size:13px;color:var(--muted);font-weight:600">${r.done}/${LEVELS.length} levels · ${r.badges} badges</div></div>
+      <div class="xp">⭐ ${r.xp}</div>`;
+    list.appendChild(row);
+  });
+}
+
+
+/* =========================================================================
+   15. STARTUP
+========================================================================= */
+// Sound toggle button
+document.getElementById('soundBtn').addEventListener('click',function(){
+  const on=!Sound.isOn(); Sound.setOn(on);
+  this.textContent=on?'🔊':'🔇';
+  if(on) Sound.tap();
+});
+
+// If CodeMirror didn't load (no wifi), show the friendly offline note.
+window.addEventListener('load',()=>{
+  if(!window.CodeMirror){ document.getElementById('netNote').style.display='block'; }
+});
+
+// First unlock the audio on first tap (needed by iPad Safari)
+document.body.addEventListener('touchstart',function once(){ Sound.tap(); }, {once:true});
+
+renderProfiles();
+mountCody();
+startCocoIdle();   // Coco's gentle on-and-off encouragement
+</script>
+</body>
+</html>

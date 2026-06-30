@@ -1223,11 +1223,22 @@ function onCodeChange(){
 
 function updatePreview(){
   const code=getCode();
+  // <base target="_blank"> makes any link the kids make open in a NEW tab,
+  // instead of trying to load the site inside the tiny preview (which many
+  // sites block, leaving it blank). rel keeps it safe.
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8">
+    <base target="_blank">
     <style>body{font-family:'Trebuchet MS',Verdana,sans-serif;padding:14px;color:#222;}
     img{max-width:100%;} a{color:#1273e6;}</style></head>
     <body>${code}</body></html>`;
   document.getElementById('preview').srcdoc=html;
+  // belt-and-braces: ensure every link is safe + opens in a new tab
+  const fr=document.getElementById('preview');
+  fr.onload=()=>{ try{
+    fr.contentDocument.querySelectorAll('a[href]').forEach(a=>{
+      a.target='_blank'; a.rel='noopener noreferrer';
+    });
+  }catch(e){} };
 }
 
 // Parse the kid's HTML and see which goal ingredients are present

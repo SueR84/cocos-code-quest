@@ -229,7 +229,14 @@ button{font-family:'Baloo 2', ui-rounded, 'SF Pro Rounded', 'Arial Rounded MT Bo
 /* ============================== MODAL ============================== */
 .modal-bg{position:fixed; inset:0; background:rgba(30,20,60,.55); display:none; align-items:center; justify-content:center; z-index:50; padding:20px;}
 .modal-bg.show{display:flex; animation:pop .3s;}
-.modal{background:#fff; border-radius:26px; padding:30px; max-width:420px; text-align:center; box-shadow:var(--shadow);}
+.modal{background:#fff; border-radius:26px; padding:30px; max-width:440px; text-align:center; box-shadow:var(--shadow); max-height:88vh; overflow:auto;}
+/* My Pictures library */
+.picgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(86px,1fr)); gap:10px; margin-top:6px;}
+.piccell{position:relative; background:#f5f3ff; border-radius:12px; padding:6px; cursor:pointer; transition:transform .12s;}
+.piccell:active{transform:scale(.94);}
+.piccell img{width:100%; height:64px; object-fit:cover; border-radius:8px; background:#fff; display:block;}
+.piccell code{display:block; font-size:11px; margin-top:4px; color:#5a3bd6; word-break:break-all; font-family:'Courier New',monospace;}
+.picdel{position:absolute; top:-7px; right:-7px; width:24px; height:24px; border-radius:50%; background:var(--accent); color:#fff; font-size:13px; line-height:1; box-shadow:0 2px 5px rgba(0,0,0,.25); z-index:2;}
 .modal .big-emo{font-size:80px; animation:bounce 1s ease infinite;}
 .modal h2{margin:8px 0; font-size:32px; color:var(--brand-d);}
 .modal p{font-size:19px; color:var(--ink);}
@@ -349,7 +356,10 @@ button{font-family:'Baloo 2', ui-rounded, 'SF Pro Rounded', 'Arial Rounded MT Bo
     <div class="editor-area">
       <div class="card pane">
         <div class="pane-h"><span><span class="dot" style="background:var(--accent)"></span>Your code — type HTML here ✏️</span>
-          <button class="btn small ghost" onclick="resetCode()">↺ Reset</button>
+          <span style="display:flex;gap:8px">
+            <button class="btn small green" onclick="openPicker()">📷 Pictures</button>
+            <button class="btn small ghost" onclick="resetCode()">↺ Reset</button>
+          </span>
         </div>
         <div id="editorMount" style="flex:1; display:flex;"></div>
       </div>
@@ -774,16 +784,16 @@ const LEVELS = [
   },
   {
     id:3, name:"Picture This", icon:"🖼️", badge:"photo-bomb", sticker:"🖼️",
-    concept:`An <b>image</b> shows a picture. We use <code>&lt;img&gt;</code> with a <code>src</code> — that's the web address of the picture. Add a crest or photo to a player card! (The starter picture is a football — swap the link for any image link you like.)`,
+    concept:`An <b>image</b> shows a picture. We use <code>&lt;img&gt;</code> with a <code>src</code> — that's the <i>name</i> of the picture. 📷 Tap the <b>Pictures</b> button to add your OWN photo (or snap one with the camera!) or pick a fun one — then use its name in your card!`,
     goalTitle:"Build a player card with a picture",
-    starter:`<h1>Player Card</h1>\n<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Soccerball.svg/120px-Soccerball.svg.png" width="140">\n<p>Name: ____   County: ____</p>`,
+    starter:`<h1>Player Card</h1>\n<img src="football.svg" width="140">\n<p>Name: ____   County: ____</p>`,
     checks:[
       {label:"A heading (<h1>)", test:doc=>nonEmpty(doc,'h1')},
       {label:"A picture with a src (<img src=\"...\">)", test:doc=>[...doc.querySelectorAll('img')].some(i=>(i.getAttribute('src')||'').trim().length>0)},
       {label:"Some words about the player (<p>)", test:doc=>nonEmpty(doc,'p')}
     ],
     bonus:{label:"Give your image a width (e.g. width=\"140\")", test:doc=>[...doc.querySelectorAll('img')].some(i=>i.getAttribute('width'))},
-    hints:`An image tag looks like <code>&lt;img src="link-to-a-picture"&gt;</code>. It doesn't need a closing tag! Make sure the part inside the quotes is a real picture link.`
+    hints:`An image tag looks like <code>&lt;img src="football.svg"&gt;</code>. It doesn't need a closing tag! 📷 Tap <b>Pictures</b> to add your own photo, then put its name inside the quotes — or just tap the picture to drop it in!`
   },
   {
     id:4, name:"Make the Link", icon:"🔗", badge:"playmaker", sticker:"🔗",
@@ -842,7 +852,7 @@ const LEVELS = [
     id:8, name:"The Final", icon:"🏆", badge:"full-time", sticker:"🏆", boss:true,
     concept:`This is the <b>BIG one</b> — put everything together! Build your very own fan page or travel bucket-list page. Use a heading, a paragraph, a picture, a link AND a list. You're the boss now! 💪`,
     goalTitle:"Build your own page (use it all!)",
-    starter:`<h1>My Awesome Page</h1>\n<p>Tell everyone what this page is about!</p>\n<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Soccerball.svg/120px-Soccerball.svg.png" width="120">\n<h2>My Top Things</h2>\n<ul>\n  <li>One</li>\n  <li>Two</li>\n  <li>Three</li>\n</ul>\n<a href="https://www.gaa.ie">A cool link</a>`,
+    starter:`<h1>My Awesome Page</h1>\n<p>Tell everyone what this page is about!</p>\n<img src="football.svg" width="120">\n<h2>My Top Things</h2>\n<ul>\n  <li>One</li>\n  <li>Two</li>\n  <li>Three</li>\n</ul>\n<a href="https://www.gaa.ie">A cool link</a>`,
     checks:[
       {label:"A heading (<h1>)", test:doc=>nonEmpty(doc,'h1')},
       {label:"A paragraph (<p>)", test:doc=>nonEmpty(doc,'p')},
@@ -919,7 +929,7 @@ function getProfile(id){
   const all = loadAll();
   if(!all[id]){
     all[id] = { xp:0, completed:[], bonus:[], badges:[], theme:"",
-                streak:0, lastPlayed:null, code:{}, photo:null, bio:"", mstickers:[] };
+                streak:0, lastPlayed:null, code:{}, photo:null, bio:"", mstickers:[], pics:[] };
     saveAll(all);
   }
   // make sure new fields exist for older saves
@@ -927,7 +937,7 @@ function getProfile(id){
   p.xp=p.xp||0; p.completed=p.completed||[]; p.bonus=p.bonus||[];
   p.badges=p.badges||[]; p.theme=p.theme||""; p.streak=p.streak||0;
   p.lastPlayed=p.lastPlayed||null; p.code=p.code||{};
-  p.photo=p.photo||null; p.bio=p.bio||""; p.mstickers=p.mstickers||[];
+  p.photo=p.photo||null; p.bio=p.bio||""; p.mstickers=p.mstickers||[]; p.pics=p.pics||[];
   return p;
 }
 function putProfile(id,p){ const all=loadAll(); all[id]=p; saveAll(all); }
@@ -1222,7 +1232,7 @@ function onCodeChange(){
 }
 
 function updatePreview(){
-  const code=getCode();
+  const code=resolvePics(getCode());   // swap picture names → real images
   // <base target="_blank"> makes any link the kids make open in a NEW tab,
   // instead of trying to load the site inside the tiny preview (which many
   // sites block, leaving it blank). rel keeps it safe.
@@ -1239,6 +1249,118 @@ function updatePreview(){
       a.target='_blank'; a.rel='noopener noreferrer';
     });
   }catch(e){} };
+}
+
+
+/* =========================================================================
+   10b. MY PICTURES — kids upload their own photos (or use the iPad camera)
+        and a few fun preset pictures. Each gets a short filename; in their
+        HTML they write <img src="pic1.jpg"> and the preview swaps the name
+        for the real image. Pictures are saved on the device only.
+========================================================================= */
+// A few fun, offline preset images drawn as tiny SVGs.
+const PRESET_PICS = [
+  {name:"football.svg", svg:"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='46' fill='#fff' stroke='#222' stroke-width='3'/><path d='M50 36 l13 9 -5 15 -16 0 -5 -15z' fill='#222'/><path d='M50 36 V18 M63 45 l15 -7 M58 60 l10 14 M42 60 l-10 14 M37 45 l-15 -7' stroke='#222' stroke-width='2.6' fill='none'/></svg>"},
+  {name:"basketball.svg", svg:"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='46' fill='#e8772e' stroke='#7a3b12' stroke-width='3'/><path d='M50 4 v92 M4 50 h92 M16 18 q34 32 0 64 M84 18 q-34 32 0 64' stroke='#7a3b12' stroke-width='3' fill='none'/></svg>"},
+  {name:"shamrock.svg", svg:"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><g fill='#1aa84f'><circle cx='37' cy='42' r='15'/><circle cx='63' cy='42' r='15'/><circle cx='50' cy='28' r='15'/></g><path d='M48 52 q-2 24 -13 38 q20 -6 17 -38z' fill='#1aa84f'/></svg>"},
+  {name:"trophy.svg", svg:"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><g fill='#ffc83d' stroke='#c79a00' stroke-width='2'><path d='M32 22 h36 v12 a18 18 0 0 1 -36 0z'/><rect x='46' y='50' width='8' height='14'/><rect x='34' y='64' width='32' height='8' rx='2'/><rect x='38' y='72' width='24' height='8' rx='2'/></g><path d='M32 26 h-9 a7 7 0 0 0 7 9 M68 26 h9 a7 7 0 0 1 -7 9' fill='none' stroke='#c79a00' stroke-width='3'/></svg>"},
+  {name:"star.svg", svg:"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M50 8 l12 26 28 3 -21 19 6 28 -25 -15 -25 15 6 -28 -21 -19 28 -3z' fill='#ffd23f' stroke='#e0a800' stroke-width='2'/></svg>"},
+  {name:"music.svg", svg:"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='34' cy='72' r='12' fill='#6d5dfc'/><circle cx='70' cy='64' r='12' fill='#6d5dfc'/><path d='M44 72 V30 l38 -9 v43' fill='none' stroke='#6d5dfc' stroke-width='6' stroke-linejoin='round'/></svg>"}
+];
+function svgUrl(svg){ return 'data:image/svg+xml,'+encodeURIComponent(svg); }
+
+// map of every available picture name → its image data (presets + this kid's)
+function picMap(){
+  const m={};
+  PRESET_PICS.forEach(p=>{ m[p.name]=svgUrl(p.svg); });
+  ((current&&current.pics)||[]).forEach(p=>{ m[p.name]=p.data; });
+  return m;
+}
+// swap any <img src="name"> for the real image, just for the preview
+function resolvePics(code){
+  const m=picMap();
+  Object.keys(m).forEach(name=>{
+    const safe=name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    const re=new RegExp('(src\\s*=\\s*["\\\'])'+safe+'(["\\\'])','gi');
+    code=code.replace(re, (mm,q1,q2)=>q1+m[name]+q2);
+  });
+  return code;
+}
+
+// insert text into whichever editor is active, at the cursor
+function insertIntoEditor(text){
+  if(editor){ editor.focus(); editor.replaceSelection(text); }
+  else { const ta=document.getElementById('fallbackEditor');
+    if(ta){ const s=ta.selectionStart||ta.value.length, e=ta.selectionEnd||s;
+      ta.value=ta.value.slice(0,s)+text+ta.value.slice(e); ta.focus(); } }
+  onCodeChange();
+}
+
+// open / draw the picture picker
+function openPicker(){ Sound.tap(); renderPicker(); document.getElementById('modalBg').classList.add('show'); }
+function picCell(name,data,deletable){
+  return `<div class="piccell" onclick="insertImageTag('${name}')">
+    ${deletable?`<button class="picdel" title="Delete" onclick="event.stopPropagation();deletePic('${name}')">✕</button>`:''}
+    <img src="${data}" alt="">
+    <code>${name}</code>
+  </div>`;
+}
+function renderPicker(){
+  const box=document.getElementById('modalBox');
+  const mine=(current.pics||[]);
+  box.innerHTML=`
+    <h2 style="margin-top:0">📷 My Pictures</h2>
+    <p style="font-size:14px;color:var(--muted);margin:0 0 12px">Tap a picture to pop it into your code! They stay on this iPad. 🔒</p>
+    <label class="btn green" style="display:inline-flex;cursor:pointer;margin-bottom:10px">➕ Add a photo
+      <input type="file" accept="image/*" style="display:none" onchange="addPicture(this.files[0])">
+    </label>
+    <div class="picgrid">
+      ${mine.length ? mine.map(p=>picCell(p.name,p.data,true)).join('')
+        : '<p style="grid-column:1/-1;color:var(--muted);font-size:14px;margin:4px 0">No photos yet — tap ➕ to add one from your camera or photos!</p>'}
+    </div>
+    <h4 style="margin:16px 0 4px;color:var(--brand-d)">✨ Fun pictures</h4>
+    <div class="picgrid">
+      ${PRESET_PICS.map(p=>picCell(p.name,svgUrl(p.svg),false)).join('')}
+    </div>
+    <div style="margin-top:16px"><button class="btn ghost" onclick="closeModal()">Done</button></div>`;
+}
+// add a photo: shrink it (to save space), give it a name, save on the device
+function addPicture(file){
+  if(!file) return;
+  if((current.pics||[]).length>=6){ alert("That's 6 pictures already, ya superstar! 🐶 Delete one to add a new photo."); return; }
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      const max=600, sc=Math.min(1,max/Math.max(img.width,img.height));
+      const w=Math.round(img.width*sc), h=Math.round(img.height*sc);
+      const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      const data=cv.toDataURL('image/jpeg',0.78);
+      let n=1; const names=new Set((current.pics||[]).map(p=>p.name));
+      while(names.has('pic'+n+'.jpg')) n++;
+      const name='pic'+n+'.jpg';
+      current.pics=current.pics||[]; current.pics.push({name,data});
+      // save with a storage-full guard
+      try{ const all=loadAll(); all[currentId]=current; localStorage.setItem(SAVE_KEY, JSON.stringify(all)); }
+      catch(err){ current.pics.pop(); alert("Whoops — the iPad is out of space for pictures. 🐶 Try deleting one first."); return; }
+      Sound.ding(); renderPicker(); updatePreview();
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function deletePic(name){
+  Sound.tap();
+  current.pics=(current.pics||[]).filter(p=>p.name!==name);
+  putProfile(currentId,current);
+  renderPicker(); updatePreview(); liveCheck();
+}
+// tapping a picture drops a ready-made <img> tag into their code
+function insertImageTag(name){
+  insertIntoEditor('\n<img src="'+name+'" width="200">');
+  closeModal();
+  cocoSay('Class! Your picture\'s in — look at the preview! 🐾');
 }
 
 // Parse the kid's HTML and see which goal ingredients are present
